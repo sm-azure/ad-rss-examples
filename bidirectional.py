@@ -26,7 +26,27 @@ class InterfaceTest(unittest.TestCase):
         return occupied_region
 
 
+    def _prepare_vehicle_negative_direction(self, vehicle_type, object_id, car_width, car_length, road_width, road_length, car_rear_end_lon, car_right_lat, car_speed, occupied_region):
+        """
+        Setup Ego vehicle
+        """
+        rss_vehicle_a = rss.Object()
 
+        rss_vehicle_a.objectType = vehicle_type
+        rss_vehicle_a.velocity.speedLonMin = physics.Speed(car_speed)
+        rss_vehicle_a.velocity.speedLonMax = physics.Speed(car_speed)
+        rss_vehicle_a.velocity.speedLatMin = physics.Speed(0.0)
+        rss_vehicle_a.velocity.speedLatMax = physics.Speed(0.0)
+        rss_vehicle_a.objectId = object_id
+
+        occupied_region.latRange.minimum = physics.ParametricValue((car_right_lat-car_width) / road_width)
+        occupied_region.latRange.maximum = physics.ParametricValue(car_right_lat/ road_width)
+        occupied_region.lonRange.minimum = physics.ParametricValue((car_rear_end_lon - car_length)/ road_length)
+        occupied_region.lonRange.maximum = physics.ParametricValue((car_rear_end_lon) / road_length)
+
+        rss_vehicle_a.occupiedRegions.append(occupied_region)
+
+        return rss_vehicle_a
 
     def _prepare_vehicle(self, vehicle_type, object_id, car_width, car_length, road_width, road_length, car_rear_end_lon, car_right_lat, car_speed, occupied_region):
         """
@@ -41,7 +61,7 @@ class InterfaceTest(unittest.TestCase):
         rss_vehicle_a.velocity.speedLatMax = physics.Speed(0.0)
         rss_vehicle_a.objectId = object_id
 
-        occupied_region.latRange.minimum = physics.ParametricValue(car_right_lat)
+        occupied_region.latRange.minimum = physics.ParametricValue(car_right_lat/ road_width)
         occupied_region.latRange.maximum = physics.ParametricValue((car_right_lat + car_width) / road_width)
         occupied_region.lonRange.minimum = physics.ParametricValue(car_rear_end_lon/ road_length)
         occupied_region.lonRange.maximum = physics.ParametricValue((car_rear_end_lon+ car_length) / road_length)
@@ -55,13 +75,13 @@ class InterfaceTest(unittest.TestCase):
 
         occupied_region = self._prepare_occupied_region(0)
         ego_vehicle = self._prepare_vehicle(rss.ObjectType.EgoVehicle, object_id_ego, ego_car_width, ego_car_length, road_width, road_length, ego_rear_end_lon, ego_car_right_lat, ego_car_speed, occupied_region)
-        other_vehicle = self._prepare_vehicle(rss.ObjectType.OtherVehicle, object_id_other, other_car_width, other_car_length, road_width, road_length, other_rear_end_lon, other_car_right_lat, other_car_speed, occupied_region)
+        other_vehicle = self._prepare_vehicle_negative_direction(rss.ObjectType.OtherVehicle, object_id_other, other_car_width, other_car_length, road_width, road_length, other_rear_end_lon, other_car_right_lat, other_car_speed, occupied_region)
 
         rss_scene = rss.Scene()
 
         rss_scene.egoVehicle = ego_vehicle
         rss_scene.object = other_vehicle
-        rss_scene.situationType = rss.SituationType.SameDirection
+        rss_scene.situationType = rss.SituationType.OppositeDirection
 
         road_segment = rss.RoadSegment()
         lane_segment = rss.LaneSegment()
@@ -71,7 +91,7 @@ class InterfaceTest(unittest.TestCase):
         lane_segment.width.minimum = physics.Distance(road_width)
         lane_segment.width.maximum = physics.Distance(road_width)
         lane_segment.type = rss.LaneSegmentType.Normal
-        lane_segment.drivingDirection = rss.LaneDrivingDirection.Positive
+        lane_segment.drivingDirection = rss.LaneDrivingDirection.Bidirectional
         road_segment.append(lane_segment)
         rss_scene.egoVehicleRoad.append(road_segment)
         rss_scene.objectRssDynamics.responseTime = physics.Duration(0.5)
@@ -145,9 +165,14 @@ class InterfaceTest(unittest.TestCase):
 
         for i in range(100):
             rss_scene = self._prepare_scene_same_direction(object_id_ego=0, object_id_other=1, ego_car_width=2.0, other_car_width=2.0, ego_car_length=5.0, other_car_length=5.0,
-            road_width=5.0, road_length=1000.0, ego_rear_end_lon=0.0+20.0*i, other_rear_end_lon=100.0+10.0*i, ego_car_right_lat=0.0, other_car_right_lat=0.0, ego_car_speed=20.0, other_car_speed=10.0)
+            road_width=5.0, road_length=1000.0, ego_rear_end_lon=0.0+20.0*i, other_rear_end_lon=100.0-10.0*i, ego_car_right_lat=0.0, other_car_right_lat=5.0, ego_car_speed=20.0, other_car_speed=10.0)
+            print("--Scene->", 0.0+20.0*i, 100.0-10.0*i)
+            if(100.0-10.0*i<=0.0 or 0.0+20.0*i >= 1000.0):
+                print("All good!")
+                break
             self._prepare_world_model2(rss_scene, i+1)
             self._check_RSS_complaince(self.world_model)
+
 
 
 
